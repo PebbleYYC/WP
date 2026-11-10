@@ -12,6 +12,7 @@ import ca.pebble.watchpatrol.data.reddit.RedditConfig
 import ca.pebble.watchpatrol.data.reddit.RedditCreds
 import ca.pebble.watchpatrol.data.remote.ApiConfig
 import ca.pebble.watchpatrol.data.remote.WatchPatrolApi
+import ca.pebble.watchpatrol.data.remote.WatchReconWeb
 import ca.pebble.watchpatrol.data.repository.CatalogRepository
 import ca.pebble.watchpatrol.data.repository.IdentifyRepository
 import ca.pebble.watchpatrol.data.repository.ListingsRepository
@@ -26,6 +27,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import retrofit2.converter.scalars.ScalarsConverterFactory
 
 /** Hand-rolled dependency graph — no Hilt / kapt, so it builds clean anywhere. */
 class AppContainer(context: Context) {
@@ -83,8 +85,16 @@ class AppContainer(context: Context) {
         .addConverterFactory(jsonFactory)
         .build()
 
+    // WatchRecon public pages (HTML) — keyless listings source.
+    private val watchReconRetrofit: Retrofit = Retrofit.Builder()
+        .baseUrl("https://watchrecon.com/")
+        .client(okHttp)
+        .addConverterFactory(ScalarsConverterFactory.create())
+        .build()
+
     val api: WatchPatrolApi = apiRetrofit.create(WatchPatrolApi::class.java)
     private val redditApi: RedditApi = redditRetrofit.create(RedditApi::class.java)
+    private val watchReconWeb: WatchReconWeb = watchReconRetrofit.create(WatchReconWeb::class.java)
 
     val settingsStore = SettingsStore(context)
     val starredStore = StarredStore(context)
@@ -105,7 +115,7 @@ class AppContainer(context: Context) {
         }
     }
 
-    val listingsRepository = ListingsRepository(redditClient)
+    val listingsRepository = ListingsRepository(watchReconWeb)
     val catalogRepository = CatalogRepository(api)
     val pricingRepository = PricingRepository(api)
     val identifyRepository = IdentifyRepository(api)
