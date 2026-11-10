@@ -9,15 +9,27 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe Frankfurter FX API (keyless)
+      - name: Inspect WatchRecon sources + Canada
         run: |
           UA="Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 Chrome/125.0 Mobile Safari/537.36"
-          probe () {
-            code=$(curl -sL -A "$UA" "$1" -o /tmp/fx.json -w "%{http_code}" --max-time 20)
-            echo "[$1]"
-            echo "  HTTP $code : $(head -c 300 /tmp/fx.json)"
-            echo
-          }
-          probe "https://api.frankfurter.app/latest?base=CAD"
-          probe "https://api.frankfurter.app/latest?from=USD&to=CAD"
-          probe "https://api.frankfurter.dev/v1/latest?base=CAD"
+          curl -sL -A "$UA" "https://watchrecon.com/" -o /tmp/wr.html -w "home HTTP %{http_code}\n"
+
+          echo "=== mentions of 'canada' (case-insensitive) ==="
+          grep -ioE '[a-z/.:_-]*canada[a-z/._-]*' /tmp/wr.html | sort -u | head -20
+
+          echo
+          echo "=== source filter: checkbox inputs (name/value) ==="
+          grep -oE '<input[^>]*type="checkbox"[^>]*>' /tmp/wr.html | grep -oE 'name="[^"]*"|value="[^"]*"|id="[^"]*"' | head -40
+
+          echo
+          echo "=== distinct sourceInfo values in the feed ==="
+          grep -oE '<span class="sourceInfo">[^<]*</span>' /tmp/wr.html | sed -E 's/<[^>]*>//g' | sort | uniq -c | sort -rn | head -40
+
+          echo
+          echo "=== any outbound links to watchexchangecanada ==="
+          grep -oiE 'href="https?://[^"]*watchexchangecanada[^"]*"' /tmp/wr.html | head -5
+
+          echo
+          echo "=== source-related query params / form ==="
+          grep -oE '<form[^>]*>' /tmp/wr.html | head -5
+          grep -oiE 'name="(source|sources|forum|site|src)[^"]*"' /tmp/wr.html | sort -u | head
