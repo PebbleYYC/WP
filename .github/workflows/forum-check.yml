@@ -9,38 +9,28 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Discover + test watch-forum RSS feeds
+      - name: Probe aggregators + forum feeds
         run: |
           UA="Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Mobile Safari/537.36"
 
-          test_rss () {
-            local url="$1"
-            code=$(curl -sL -A "$UA" "$url" -o /tmp/f.xml -w "%{http_code}")
-            items=$(grep -c '<item' /tmp/f.xml 2>/dev/null)
-            t1=$(grep -o '<title>[^<]*</title>' /tmp/f.xml | sed -n '2p' | sed 's/<[^>]*>//g')
-            echo "  HTTP $code  items=$items  bytes=$(wc -c < /tmp/f.xml)"
-            echo "  first item: ${t1:0:80}"
-            echo "  head: $(head -c 70 /tmp/f.xml | tr -d '\n')"
+          probe () {
+            local label="$1"; local url="$2"
+            code=$(curl -sL -A "$UA" "$url" -o /tmp/p.out -w "%{http_code}" --max-time 25)
+            echo "[$label] HTTP $code  bytes=$(wc -c < /tmp/p.out)"
+            echo "   head: $(head -c 80 /tmp/p.out | tr -d '\n\r')"
+            echo "   panels(div.panel)=$(grep -o 'class="panel' /tmp/p.out | wc -l)  rss-items=$(grep -o '<item' /tmp/p.out | wc -l)  listing-links=$(grep -oE 'listing/[0-9]+' /tmp/p.out | sort -u | wc -l)"
+            echo "   feed-hints: $(grep -oiE 'application/rss\+xml|/feed|\.rss|/rss|/api/' /tmp/p.out | sort -u | head -5 | tr '\n' ' ')"
+            echo
           }
 
-          echo "=== WatchUSeek: discover sales forum nodes ==="
-          curl -sL -A "$UA" "https://www.watchuseek.com/forums/" -o /tmp/wus.html -w "forums index HTTP %{http_code}\n"
-          nodes=$(grep -oE '/forums/[a-z0-9-]+\.[0-9]+/' /tmp/wus.html | grep -iE 'sale|sell|market|classif|trad|corner' | sort -u)
-          echo "candidate nodes:"; echo "$nodes"
-          echo
-          for n in $nodes; do
-            echo "[watchuseek $n index.rss]"
-            test_rss "https://www.watchuseek.com${n}index.rss"
-            echo
-          done
+          echo "========== WatchPatrol (the aggregator the app is named for) =========="
+          probe "watchpatrol home"        "https://www.watchpatrol.net/"
+          probe "watchpatrol ?query=rolex" "https://www.watchpatrol.net/?query=rolex"
 
-          echo "=== OmegaForums: discover sales nodes ==="
-          curl -sL -A "$UA" "https://omegaforums.net/forums/" -o /tmp/of.html -w "forums index HTTP %{http_code}\n"
-          onodes=$(grep -oE '/forums/[a-z0-9-]+\.[0-9]+/' /tmp/of.html | grep -iE 'sale|sell|market|private' | sort -u)
-          echo "candidate nodes:"; echo "$onodes"
-          for n in $onodes; do
-            echo "[omegaforums $n index.rss]"; test_rss "https://omegaforums.net${n}index.rss"; echo
-          done
+          echo "========== WatchRecon (forum sales aggregator) =========="
+          probe "watchrecon home"   "https://watchrecon.com/"
+          probe "watchrecon rss"    "https://watchrecon.com/rss"
+          probe "watchrecon search" "https://watchrecon.com/search?query=rolex"
 
-          echo "=== RolexForums (vBulletin RSS) ==="
-          test_rss "https://www.rolexforums.com/external.php?type=RSS2&forumids=9"
+          echo "========== RolexForums vBulletin RSS =========="
+          probe "rolexforums RSS f9"  "https://www.rolexforums.com/external.php?type=RSS2&forumids=9"
