@@ -12,10 +12,13 @@ import retrofit2.HttpException
  * official API, using app-only (client_credentials) OAuth with the user's own
  * registered app credentials. Reads public listings only.
  */
-class RedditClient(private val api: RedditApi) {
+class RedditClient(
+    private val api: RedditApi,
+    private val credsProvider: () -> RedditCreds?,
+) {
 
     class NotConfigured : Exception(
-        "Add your Reddit API key to use the feed (client id + secret).",
+        "Add your Reddit API key to use the feed (tap the key icon).",
     )
 
     private val mutex = Mutex()
@@ -24,11 +27,11 @@ class RedditClient(private val api: RedditApi) {
     @Volatile private var expiresAtMs: Long = 0
 
     private suspend fun bearer(): String {
-        if (!RedditConfig.isConfigured) throw NotConfigured()
+        val creds = credsProvider() ?: throw NotConfigured()
         token?.let { if (System.currentTimeMillis() < expiresAtMs) return "bearer $it" }
         return mutex.withLock {
             token?.let { if (System.currentTimeMillis() < expiresAtMs) return@withLock "bearer $it" }
-            val resp = fetchToken()
+            val resp = fetchToken(creds)
             val access = resp.accessToken
                 ?: throw IllegalStateException(
                     "Reddit returned no token (scope=${resp.scope ?: "?"}). Check the app type.",
@@ -39,9 +42,15 @@ class RedditClient(private val api: RedditApi) {
         }
     }
 
-    private suspend fun fetchToken(): RedditToken {
-        val id = RedditConfig.CLIENT_ID
-        val secret = RedditConfig.CLIENT_SECRET
+    /** Lets a fresh key take effect after the user updates it. */
+    fun clearToken() {
+        token = null
+        expiresAtMs = 0
+    }
+
+    private suspend fun fetchToken(creds: RedditCreds): RedditToken {
+        val id = creds.id
+        val secret = creds.secret
         // 1) Confidential app (web app / script): client_credentials, basic id:secret.
         return try {
             api.token(

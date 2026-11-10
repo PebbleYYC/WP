@@ -26,9 +26,21 @@ android {
         buildConfigField("String", "REDDIT_CLIENT_SECRET", "\"$redditSecret\"")
     }
 
+    signingConfigs {
+        // Committed debug keystore -> every build shares one signature, so
+        // updates install in place and app data (entered API key) survives.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
             // Flip BuildConfig.DEBUG -> enables OkHttp body logging (see ApiConfig).
         }
         release {

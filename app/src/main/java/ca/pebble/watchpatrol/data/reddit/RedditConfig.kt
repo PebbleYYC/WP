@@ -2,15 +2,20 @@ package ca.pebble.watchpatrol.data.reddit
 
 import ca.pebble.watchpatrol.BuildConfig
 
-/** Reddit app credentials + endpoints. Credentials come from BuildConfig (CI secret), not source. */
+/** Reddit app credentials entered in-app, or baked in via BuildConfig. */
+data class RedditCreds(val id: String, val secret: String)
+
+/** Reddit endpoints + the build-time credential fallback. */
 object RedditConfig {
-    val CLIENT_ID: String = BuildConfig.REDDIT_CLIENT_ID.trim()
-    val CLIENT_SECRET: String = BuildConfig.REDDIT_CLIENT_SECRET.trim()
+    private val BUILD_ID: String = BuildConfig.REDDIT_CLIENT_ID.trim()
+    private val BUILD_SECRET: String = BuildConfig.REDDIT_CLIENT_SECRET.trim()
 
     // Reddit requires a unique, descriptive User-Agent.
     const val USER_AGENT = "android:ca.pebble.watchpatrol:1.0.0 (personal watch aggregator)"
     const val SUBREDDIT = "Watchexchange"
     const val TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
 
-    val isConfigured: Boolean get() = CLIENT_ID.isNotBlank() && CLIENT_SECRET.isNotBlank()
+    /** Credentials baked in at build time, if any. In-app entry takes priority. */
+    fun buildConfigCreds(): RedditCreds? =
+        if (BUILD_ID.isNotBlank() && BUILD_SECRET.isNotBlank()) RedditCreds(BUILD_ID, BUILD_SECRET) else null
 }

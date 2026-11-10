@@ -4,15 +4,22 @@ package ca.pebble.watchpatrol.di
 
 import android.content.Context
 import ca.pebble.watchpatrol.BuildConfig
+import ca.pebble.watchpatrol.data.local.SettingsStore
 import ca.pebble.watchpatrol.data.local.StarredStore
 import ca.pebble.watchpatrol.data.reddit.RedditApi
 import ca.pebble.watchpatrol.data.reddit.RedditClient
+import ca.pebble.watchpatrol.data.reddit.RedditConfig
+import ca.pebble.watchpatrol.data.reddit.RedditCreds
 import ca.pebble.watchpatrol.data.remote.ApiConfig
 import ca.pebble.watchpatrol.data.remote.WatchPatrolApi
 import ca.pebble.watchpatrol.data.repository.CatalogRepository
 import ca.pebble.watchpatrol.data.repository.IdentifyRepository
 import ca.pebble.watchpatrol.data.repository.ListingsRepository
 import ca.pebble.watchpatrol.data.repository.PricingRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -78,11 +85,28 @@ class AppContainer(context: Context) {
 
     val api: WatchPatrolApi = apiRetrofit.create(WatchPatrolApi::class.java)
     private val redditApi: RedditApi = redditRetrofit.create(RedditApi::class.java)
-    private val redditClient = RedditClient(redditApi)
+
+    val settingsStore = SettingsStore(context)
+    val starredStore = StarredStore(context)
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // In-app key wins; otherwise fall back to any build-time credentials.
+    @Volatile private var redditCreds: RedditCreds? = RedditConfig.buildConfigCreds()
+
+    private val redditClient = RedditClient(redditApi) { redditCreds }
+
+    init {
+        appScope.launch {
+            settingsStore.redditCreds.collect { entered ->
+                redditCreds = entered ?: RedditConfig.buildConfigCreds()
+                redditClient.clearToken()
+            }
+        }
+    }
 
     val listingsRepository = ListingsRepository(redditClient)
     val catalogRepository = CatalogRepository(api)
     val pricingRepository = PricingRepository(api)
     val identifyRepository = IdentifyRepository(api)
-    val starredStore = StarredStore(context)
 }
