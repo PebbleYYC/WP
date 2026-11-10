@@ -12,6 +12,12 @@ object RedditConfig {
 
     // Reddit requires a unique, descriptive User-Agent.
     const val USER_AGENT = "android:ca.pebble.watchpatrol:1.0.0 (personal watch aggregator)"
+
+    // Browser-like UA for the public .json feed (residential IPs are served).
+    const val BROWSER_UA =
+        "Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/125.0 Mobile Safari/537.36"
+
     const val SUBREDDIT = "Watchexchange"
     const val TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
 

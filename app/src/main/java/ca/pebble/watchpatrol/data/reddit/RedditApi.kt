@@ -21,6 +21,13 @@ interface RedditApi {
         @FieldMap fields: Map<String, String>,
     ): RedditToken
 
+    /** Public, unauthenticated .json feed (absolute @Url to www.reddit.com). */
+    @GET
+    suspend fun publicListing(
+        @Url url: String,
+        @Header("User-Agent") userAgent: String,
+    ): RedditListing
+
     @GET("r/{sub}/new")
     suspend fun new(
         @Path("sub") sub: String,

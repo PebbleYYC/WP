@@ -83,14 +83,21 @@ class RedditClient(
         return IllegalStateException("Reddit auth HTTP ${e.code()}: ${body ?: e.message()}")
     }
 
-    /** Returns (listings, nextAfterCursor). */
+    /** Returns (listings, nextAfterCursor). Reads Reddit's public .json feed — no key. */
     suspend fun fetch(query: String?, after: String?): Pair<List<Listing>, String?> {
-        val auth = bearer()
-        val listing = if (query.isNullOrBlank()) {
-            api.new(RedditConfig.SUBREDDIT, auth, RedditConfig.USER_AGENT, after = after)
+        val sub = RedditConfig.SUBREDDIT
+        val base = if (query.isNullOrBlank()) {
+            "https://www.reddit.com/r/$sub/new.json"
         } else {
-            api.search(RedditConfig.SUBREDDIT, auth, RedditConfig.USER_AGENT, q = query, after = after)
+            val q = java.net.URLEncoder.encode(query, "UTF-8")
+            "https://www.reddit.com/r/$sub/search.json?q=$q&restrict_sr=1&sort=new"
         }
+        val sep = if (base.contains("?")) "&" else "?"
+        val url = buildString {
+            append(base).append(sep).append("limit=100&raw_json=1")
+            if (!after.isNullOrBlank()) append("&after=").append(after)
+        }
+        val listing = api.publicListing(url, RedditConfig.BROWSER_UA)
         val items = listing.data.children.mapNotNull { it.data.toListing() }
         return items to listing.data.after
     }
