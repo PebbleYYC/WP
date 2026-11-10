@@ -9,25 +9,20 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify WatchRecon country=Canada filter
+      - name: Reddit RSS reachability for watchexchangecanada
         run: |
           UA="Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 Chrome/125.0 Mobile Safari/537.36"
-          fetch () { curl -sL -A "$UA" "$1" -o /tmp/p.html -w "HTTP %{http_code}\n"; }
-
           for u in \
-            "https://watchrecon.com/?country%5B%5D=Canada" \
-            "https://watchrecon.com/?country[]=Canada" \
-            "https://watchrecon.com/?query=&country%5B%5D=Canada" ; do
-            echo "=== $u ==="
-            fetch "$u"
-            echo "  galleryItems: $(grep -oc 'galleryItemContainer' /tmp/p.html || echo 0)"
-            echo "  first 5 titles:"
-            grep -oE '<div class="subjectInfo">.*?</div>' /tmp/p.html 2>/dev/null | sed -E 's/<[^>]*>//g' | head -5 | sed 's/^/    - /'
-            echo "  location/flag hints (Canada mentions in feed):"
-            grep -oic 'canada' /tmp/p.html || true
-            echo
+            "https://www.reddit.com/r/watchexchangecanada/new/.rss?limit=25" \
+            "https://www.reddit.com/r/watchexchangecanada.rss" \
+            "https://old.reddit.com/r/watchexchangecanada/.rss" \
+            "https://www.reddit.com/r/watchexchangecanada/new.json?limit=5" ; do
+            code=$(curl -sL -A "$UA" "$u" -o /tmp/r.out -w "%{http_code}")
+            bytes=$(wc -c < /tmp/r.out)
+            entries=$(grep -oc '<entry>' /tmp/r.out 2>/dev/null || echo 0)
+            echo "HTTP $code  ${bytes}B  entries=$entries  <- $u"
+            if [ "$code" = "200" ] && [ "$entries" -gt 0 ]; then
+              echo "   sample titles:"
+              grep -oE '<title>[^<]*</title>' /tmp/r.out | sed -E 's/<[^>]*>//g' | head -4 | sed 's/^/     - /'
+            fi
           done
-
-          echo "=== compare: unfiltered homepage item count ==="
-          fetch "https://watchrecon.com/"
-          echo "  galleryItems: $(grep -oc 'galleryItemContainer' /tmp/p.html || echo 0)"
