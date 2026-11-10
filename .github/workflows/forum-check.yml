@@ -9,37 +9,15 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Map WatchRecon structure
+      - name: Probe Frankfurter FX API (keyless)
         run: |
-          UA="Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Mobile Safari/537.36"
-          curl -sL -A "$UA" "https://watchrecon.com/" -o /tmp/wr.html -w "home HTTP %{http_code} bytes=%{size_download}\n"
-
-          echo "=== repeating containers (class frequency) ==="
-          grep -oE 'class="[a-zA-Z0-9_ -]+"' /tmp/wr.html | sort | uniq -c | sort -rn | head -25
-
-          echo
-          echo "=== is there embedded JSON / data? ==="
-          grep -oiE '__NEXT_DATA__|application/json|data-react|window\.__|var +results|listings *=' /tmp/wr.html | sort -u | head
-
-          echo
-          echo "=== first block around a price ($) ==="
-          python3 - <<'PY'
-          import re
-          h=open('/tmp/wr.html',encoding='utf-8',errors='replace').read()
-          m=re.search(r'\$[\d,]{3,}', h)
-          if m:
-              s=max(0,m.start()-700); print(re.sub(r'\s+',' ', h[s:m.start()+120]))
-          else:
-              print("no $ price found in raw html")
-          PY
-
-          echo
-          echo "=== outbound forum links present? ==="
-          grep -oiE 'href="https?://[^"]*(watchuseek|omegaforums|rolexforums|reddit|forum)[^"]*"' /tmp/wr.html | sort -u | head -8
-
-          echo
-          echo "=== search URL variants ==="
-          for u in "https://watchrecon.com/?q=rolex" "https://watchrecon.com/?query=rolex" "https://watchrecon.com/search/rolex" "https://watchrecon.com/?page=2"; do
-            c=$(curl -sL -A "$UA" "$u" -o /tmp/s.html -w "%{http_code}" --max-time 20)
-            echo "$u -> HTTP $c bytes=$(wc -c < /tmp/s.html)"
-          done
+          UA="Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 Chrome/125.0 Mobile Safari/537.36"
+          probe () {
+            code=$(curl -sL -A "$UA" "$1" -o /tmp/fx.json -w "%{http_code}" --max-time 20)
+            echo "[$1]"
+            echo "  HTTP $code : $(head -c 300 /tmp/fx.json)"
+            echo
+          }
+          probe "https://api.frankfurter.app/latest?base=CAD"
+          probe "https://api.frankfurter.app/latest?from=USD&to=CAD"
+          probe "https://api.frankfurter.dev/v1/latest?base=CAD"
