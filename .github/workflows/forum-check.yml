@@ -1,0 +1,46 @@
+name: Forum RSS check
+
+on:
+  push:
+    paths: ['.github/workflows/forum-check.yml']
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Discover + test watch-forum RSS feeds
+        run: |
+          UA="Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Mobile Safari/537.36"
+
+          test_rss () {
+            local url="$1"
+            code=$(curl -sL -A "$UA" "$url" -o /tmp/f.xml -w "%{http_code}")
+            items=$(grep -c '<item' /tmp/f.xml 2>/dev/null)
+            t1=$(grep -o '<title>[^<]*</title>' /tmp/f.xml | sed -n '2p' | sed 's/<[^>]*>//g')
+            echo "  HTTP $code  items=$items  bytes=$(wc -c < /tmp/f.xml)"
+            echo "  first item: ${t1:0:80}"
+            echo "  head: $(head -c 70 /tmp/f.xml | tr -d '\n')"
+          }
+
+          echo "=== WatchUSeek: discover sales forum nodes ==="
+          curl -sL -A "$UA" "https://www.watchuseek.com/forums/" -o /tmp/wus.html -w "forums index HTTP %{http_code}\n"
+          nodes=$(grep -oE '/forums/[a-z0-9-]+\.[0-9]+/' /tmp/wus.html | grep -iE 'sale|sell|market|classif|trad|corner' | sort -u)
+          echo "candidate nodes:"; echo "$nodes"
+          echo
+          for n in $nodes; do
+            echo "[watchuseek $n index.rss]"
+            test_rss "https://www.watchuseek.com${n}index.rss"
+            echo
+          done
+
+          echo "=== OmegaForums: discover sales nodes ==="
+          curl -sL -A "$UA" "https://omegaforums.net/forums/" -o /tmp/of.html -w "forums index HTTP %{http_code}\n"
+          onodes=$(grep -oE '/forums/[a-z0-9-]+\.[0-9]+/' /tmp/of.html | grep -iE 'sale|sell|market|private' | sort -u)
+          echo "candidate nodes:"; echo "$onodes"
+          for n in $onodes; do
+            echo "[omegaforums $n index.rss]"; test_rss "https://omegaforums.net${n}index.rss"; echo
+          done
+
+          echo "=== RolexForums (vBulletin RSS) ==="
+          test_rss "https://www.rolexforums.com/external.php?type=RSS2&forumids=9"
