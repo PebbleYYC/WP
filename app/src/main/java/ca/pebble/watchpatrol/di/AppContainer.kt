@@ -4,6 +4,8 @@ package ca.pebble.watchpatrol.di
 
 import android.content.Context
 import ca.pebble.watchpatrol.BuildConfig
+import ca.pebble.watchpatrol.data.fx.FrankfurterApi
+import ca.pebble.watchpatrol.data.fx.FxConverter
 import ca.pebble.watchpatrol.data.local.SettingsStore
 import ca.pebble.watchpatrol.data.local.StarredStore
 import ca.pebble.watchpatrol.data.reddit.RedditApi
@@ -92,9 +94,17 @@ class AppContainer(context: Context) {
         .addConverterFactory(ScalarsConverterFactory.create())
         .build()
 
+    // Live FX for converting listing prices to CAD (keyless).
+    private val frankfurterRetrofit: Retrofit = Retrofit.Builder()
+        .baseUrl("https://api.frankfurter.app/")
+        .client(okHttp)
+        .addConverterFactory(jsonFactory)
+        .build()
+
     val api: WatchPatrolApi = apiRetrofit.create(WatchPatrolApi::class.java)
     private val redditApi: RedditApi = redditRetrofit.create(RedditApi::class.java)
     private val watchReconWeb: WatchReconWeb = watchReconRetrofit.create(WatchReconWeb::class.java)
+    private val fxConverter = FxConverter(frankfurterRetrofit.create(FrankfurterApi::class.java))
 
     val settingsStore = SettingsStore(context)
     val starredStore = StarredStore(context)
@@ -115,7 +125,7 @@ class AppContainer(context: Context) {
         }
     }
 
-    val listingsRepository = ListingsRepository(watchReconWeb)
+    val listingsRepository = ListingsRepository(watchReconWeb, fxConverter)
     val catalogRepository = CatalogRepository(api)
     val pricingRepository = PricingRepository(api)
     val identifyRepository = IdentifyRepository(api)

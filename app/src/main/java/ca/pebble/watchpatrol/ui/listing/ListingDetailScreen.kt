@@ -102,6 +102,14 @@ private fun ListingDetailContent(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.secondary,
             )
+            listing.originalPriceLabel?.let { orig ->
+                Text(
+                    text = orig,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
             Text(
                 text = listing.title,
                 style = MaterialTheme.typography.titleLarge,

@@ -71,12 +71,22 @@ fun ListingCard(
             }
         }
         Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = listing.priceLabel,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.secondary,
-            )
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = listing.priceLabel,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+                listing.originalPriceLabel?.let { orig ->
+                    Text(
+                        text = orig,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 8.dp, bottom = 2.dp),
+                    )
+                }
+            }
             Text(
                 text = listing.title,
                 style = MaterialTheme.typography.bodyMedium,

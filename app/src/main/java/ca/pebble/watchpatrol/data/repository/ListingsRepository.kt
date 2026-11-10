@@ -3,6 +3,7 @@ package ca.pebble.watchpatrol.data.repository
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import ca.pebble.watchpatrol.data.fx.FxConverter
 import ca.pebble.watchpatrol.data.paging.WebListingsPagingSource
 import ca.pebble.watchpatrol.data.remote.WatchReconWeb
 import ca.pebble.watchpatrol.data.scrape.WatchReconScraper
@@ -24,7 +25,10 @@ data class ListingQuery(
  * Listings come from WatchRecon's public pages — a keyless aggregator of
  * Reddit + the major watch forums. An in-memory cache backs the detail screen.
  */
-class ListingsRepository(private val web: WatchReconWeb) {
+class ListingsRepository(
+    private val web: WatchReconWeb,
+    private val fx: FxConverter,
+) {
 
     private val cache = ConcurrentHashMap<Long, Listing>()
 
@@ -38,7 +42,8 @@ class ListingsRepository(private val web: WatchReconWeb) {
                     emptyList()
                 } else {
                     val html = web.page(query.q?.takeIf { it.isNotBlank() })
-                    WatchReconScraper.parse(html).also { list ->
+                    val parsed = WatchReconScraper.parse(html)
+                    fx.toCadAll(parsed).also { list ->
                         list.forEach { cache[it.id] = it }
                     }
                 }

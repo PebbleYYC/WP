@@ -1,6 +1,7 @@
 package ca.pebble.watchpatrol.data.scrape
 
 import ca.pebble.watchpatrol.domain.model.Listing
+import ca.pebble.watchpatrol.util.Formatters
 import org.jsoup.Jsoup
 
 /**
@@ -40,13 +41,7 @@ object WatchReconScraper {
 
             val priceText = el.selectFirst(".priceInfo")?.text()?.takeIf { it.isNotBlank() }
             val priceValue = priceText?.replace(Regex("[^0-9.]"), "")?.toDoubleOrNull()
-            val currency = when {
-                priceText == null -> null
-                priceText.contains("€") -> "EUR"
-                priceText.contains("£") -> "GBP"
-                priceText.contains("$") -> "USD"
-                else -> null
-            }
+            val currency = priceText?.let { Formatters.detectCurrency(it) }
 
             val image = el.selectFirst("img.thumb")?.absUrl("src")?.takeIf { it.isNotBlank() }
             val seller = el.selectFirst(".userNameInfo")?.text()?.takeIf { it.isNotBlank() }

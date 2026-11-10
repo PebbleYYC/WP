@@ -17,6 +17,7 @@ data class Listing(
     val brandName: String?,
     val modelName: String?,
     val modelSlug: String?,
+    val originalPriceLabel: String? = null,
 )
 
 data class Brand(

@@ -5,6 +5,7 @@ import java.text.NumberFormat
 import java.time.Instant
 import java.util.Currency
 import java.util.Locale
+import kotlin.math.roundToLong
 
 object Formatters {
 
@@ -22,6 +23,22 @@ object Formatters {
         return runCatching { fmt.format(amount) }.getOrElse {
             "${currency?.uppercase().orEmpty()} ${amount.toLong()}".trim()
         }
+    }
+
+    /** Whole-dollar CAD, e.g. "CA$1,234". */
+    fun cad(amount: Double): String =
+        "CA$" + NumberFormat.getIntegerInstance(Locale.CANADA).format(amount.roundToLong())
+
+    /** Best-guess ISO currency code from a price string's symbol/text. Bare "$" -> USD. */
+    fun detectCurrency(priceText: String): String? = when {
+        priceText.contains("€") -> "EUR"
+        priceText.contains("£") -> "GBP"
+        priceText.contains("¥") || priceText.contains("JPY", true) -> "JPY"
+        priceText.contains("CHF", true) || priceText.contains("Fr", true) -> "CHF"
+        Regex("CA\\\$|C\\\$|CAD", RegexOption.IGNORE_CASE).containsMatchIn(priceText) -> "CAD"
+        Regex("A\\\$|AUD", RegexOption.IGNORE_CASE).containsMatchIn(priceText) -> "AUD"
+        priceText.contains("$") -> "USD"
+        else -> null
     }
 
     fun priceCompact(amount: Double?, currency: String?): String {
