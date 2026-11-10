@@ -9,28 +9,37 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe aggregators + forum feeds
+      - name: Map WatchRecon structure
         run: |
           UA="Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Mobile Safari/537.36"
+          curl -sL -A "$UA" "https://watchrecon.com/" -o /tmp/wr.html -w "home HTTP %{http_code} bytes=%{size_download}\n"
 
-          probe () {
-            local label="$1"; local url="$2"
-            code=$(curl -sL -A "$UA" "$url" -o /tmp/p.out -w "%{http_code}" --max-time 25)
-            echo "[$label] HTTP $code  bytes=$(wc -c < /tmp/p.out)"
-            echo "   head: $(head -c 80 /tmp/p.out | tr -d '\n\r')"
-            echo "   panels(div.panel)=$(grep -o 'class="panel' /tmp/p.out | wc -l)  rss-items=$(grep -o '<item' /tmp/p.out | wc -l)  listing-links=$(grep -oE 'listing/[0-9]+' /tmp/p.out | sort -u | wc -l)"
-            echo "   feed-hints: $(grep -oiE 'application/rss\+xml|/feed|\.rss|/rss|/api/' /tmp/p.out | sort -u | head -5 | tr '\n' ' ')"
-            echo
-          }
+          echo "=== repeating containers (class frequency) ==="
+          grep -oE 'class="[a-zA-Z0-9_ -]+"' /tmp/wr.html | sort | uniq -c | sort -rn | head -25
 
-          echo "========== WatchPatrol (the aggregator the app is named for) =========="
-          probe "watchpatrol home"        "https://www.watchpatrol.net/"
-          probe "watchpatrol ?query=rolex" "https://www.watchpatrol.net/?query=rolex"
+          echo
+          echo "=== is there embedded JSON / data? ==="
+          grep -oiE '__NEXT_DATA__|application/json|data-react|window\.__|var +results|listings *=' /tmp/wr.html | sort -u | head
 
-          echo "========== WatchRecon (forum sales aggregator) =========="
-          probe "watchrecon home"   "https://watchrecon.com/"
-          probe "watchrecon rss"    "https://watchrecon.com/rss"
-          probe "watchrecon search" "https://watchrecon.com/search?query=rolex"
+          echo
+          echo "=== first block around a price ($) ==="
+          python3 - <<'PY'
+          import re
+          h=open('/tmp/wr.html',encoding='utf-8',errors='replace').read()
+          m=re.search(r'\$[\d,]{3,}', h)
+          if m:
+              s=max(0,m.start()-700); print(re.sub(r'\s+',' ', h[s:m.start()+120]))
+          else:
+              print("no $ price found in raw html")
+          PY
 
-          echo "========== RolexForums vBulletin RSS =========="
-          probe "rolexforums RSS f9"  "https://www.rolexforums.com/external.php?type=RSS2&forumids=9"
+          echo
+          echo "=== outbound forum links present? ==="
+          grep -oiE 'href="https?://[^"]*(watchuseek|omegaforums|rolexforums|reddit|forum)[^"]*"' /tmp/wr.html | sort -u | head -8
+
+          echo
+          echo "=== search URL variants ==="
+          for u in "https://watchrecon.com/?q=rolex" "https://watchrecon.com/?query=rolex" "https://watchrecon.com/search/rolex" "https://watchrecon.com/?page=2"; do
+            c=$(curl -sL -A "$UA" "$u" -o /tmp/s.html -w "%{http_code}" --max-time 20)
+            echo "$u -> HTTP $c bytes=$(wc -c < /tmp/s.html)"
+          done
