@@ -9,35 +9,25 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Which subreddits does WatchRecon index
+      - name: Verify WatchRecon country=Canada filter
         run: |
           UA="Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 Chrome/125.0 Mobile Safari/537.36"
+          fetch () { curl -sL -A "$UA" "$1" -o /tmp/p.html -w "HTTP %{http_code}\n"; }
 
-          fetch () { curl -sL -A "$UA" "$1" -o /tmp/p.html -w "HTTP %{http_code}  <- $1\n"; }
-
-          echo "### 1. homepage feed: distinct reddit subreddits linked"
-          fetch "https://watchrecon.com/"
-          grep -oiE 'reddit\.com/r/[a-z0-9_]+' /tmp/p.html | tr 'A-Z' 'a-z' | sort | uniq -c | sort -rn | head -30
-          echo "  (galleryItemContainer count:)"; grep -oc 'galleryItemContainer' /tmp/p.html || true
-
-          echo
-          echo "### 2. search 'canada' on WatchRecon: distinct subs + any canada sub"
-          fetch "https://watchrecon.com/?query=canada"
-          grep -oiE 'reddit\.com/r/[a-z0-9_]+' /tmp/p.html | tr 'A-Z' 'a-z' | sort | uniq -c | sort -rn | head -30
-          echo "  (watchexchangecanada hits:)"; grep -oic 'watchexchangecanada' /tmp/p.html || true
-
-          echo
-          echo "### 3. does a /r/watchexchangecanada feed exist on watchrecon?"
           for u in \
-            "https://watchrecon.com/?query=watchexchangecanada" \
-            "https://watchrecon.com/reddit/watchexchangecanada" \
-            "https://watchrecon.com/r/watchexchangecanada" ; do
+            "https://watchrecon.com/?country%5B%5D=Canada" \
+            "https://watchrecon.com/?country[]=Canada" \
+            "https://watchrecon.com/?query=&country%5B%5D=Canada" ; do
+            echo "=== $u ==="
             fetch "$u"
-            echo "   galleryItems: $(grep -oc 'galleryItemContainer' /tmp/p.html || echo 0)"
+            echo "  galleryItems: $(grep -oc 'galleryItemContainer' /tmp/p.html || echo 0)"
+            echo "  first 5 titles:"
+            grep -oE '<div class="subjectInfo">.*?</div>' /tmp/p.html 2>/dev/null | sed -E 's/<[^>]*>//g' | head -5 | sed 's/^/    - /'
+            echo "  location/flag hints (Canada mentions in feed):"
+            grep -oic 'canada' /tmp/p.html || true
+            echo
           done
 
-          echo
-          echo "### 4. country/continent filter options (full list)"
+          echo "=== compare: unfiltered homepage item count ==="
           fetch "https://watchrecon.com/"
-          grep -oE 'name="(continent|country)\[\]"[^>]*value="[^"]*"' /tmp/p.html | sed -E 's/.*value="([^"]*)".*/\1/' | sort -u
-          echo "  (any 'country[]' filter at all:)"; grep -oic 'name="country\[\]"' /tmp/p.html || true
+          echo "  galleryItems: $(grep -oc 'galleryItemContainer' /tmp/p.html || echo 0)"
