@@ -23,7 +23,9 @@ object WatchReconScraper {
     fun parse(html: String): List<Listing> {
         val doc = Jsoup.parse(html, SITE)
         return doc.select("div.galleryItemContainer").mapNotNull { el ->
-            val link = el.selectFirst("a.listingLink")
+            // The title link lives in .subjectInfo; the thumbnail is also wrapped
+            // in a link, so target the subject one specifically.
+            val link = el.selectFirst(".subjectInfo a") ?: el.selectFirst("a.listingLink")
             val original = link?.absUrl("href")?.takeIf { it.isNotBlank() }
                 ?: link?.attr("href")?.takeIf { it.isNotBlank() }
 
