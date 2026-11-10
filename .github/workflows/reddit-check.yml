@@ -1,0 +1,57 @@
+name: Reddit auth check
+
+on:
+  push:
+    paths: ['.github/workflows/reddit-check.yml']
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe Reddit app-only OAuth
+        env:
+          RID: ${{ secrets.REDDIT_CLIENT_ID }}
+          RSECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          UA: "android:ca.pebble.watchpatrol:1.0.0 (by /u/watchpatrol_app)"
+        run: |
+          echo "client id length: ${#RID}   secret length: ${#RSECRET}"
+          echo
+
+          echo "=== 1) grant=client_credentials (web/script app flow) ==="
+          code=$(curl -s -o /tmp/cc.txt -w "%{http_code}" -X POST \
+            -A "$UA" --user "$RID:$RSECRET" \
+            -d "grant_type=client_credentials" \
+            https://www.reddit.com/api/v1/access_token)
+          echo "HTTP $code"
+          if [ "$code" = "200" ]; then
+            echo "SUCCESS (token hidden); fields present:"; grep -o '"token_type"[^,}]*\|"scope"[^,}]*\|"expires_in"[^,}]*' /tmp/cc.txt
+          else
+            echo "body: $(cat /tmp/cc.txt)"
+          fi
+          echo
+
+          echo "=== 2) grant=installed_client (installed app flow) ==="
+          code2=$(curl -s -o /tmp/ic.txt -w "%{http_code}" -X POST \
+            -A "$UA" --user "$RID:" \
+            -d "grant_type=https://oauth.reddit.com/grants/installed_client&device_id=DO_NOT_TRACK_THIS_DEVICE" \
+            https://www.reddit.com/api/v1/access_token)
+          echo "HTTP $code2"
+          if [ "$code2" = "200" ]; then
+            echo "SUCCESS (token hidden)"; grep -o '"token_type"[^,}]*\|"scope"[^,}]*' /tmp/ic.txt
+          else
+            echo "body: $(cat /tmp/ic.txt)"
+          fi
+          echo
+
+          echo "=== 3) if client_credentials worked, try reading r/Watchexchange ==="
+          if [ "$code" = "200" ]; then
+            TOKEN=$(grep -o '"access_token": *"[^"]*"' /tmp/cc.txt | sed 's/.*"\([^"]*\)"$/\1/')
+            rc=$(curl -s -o /tmp/data.txt -w "%{http_code}" \
+              -A "$UA" -H "Authorization: bearer $TOKEN" \
+              "https://oauth.reddit.com/r/Watchexchange/new?limit=1")
+            echo "data read HTTP $rc"
+            echo "first child kind: $(grep -o '"kind": *"[^"]*"' /tmp/data.txt | head -1)"
+          else
+            echo "skipped (no token)"
+          fi
