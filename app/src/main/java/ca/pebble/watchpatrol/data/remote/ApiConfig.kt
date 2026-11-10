@@ -6,11 +6,12 @@ package ca.pebble.watchpatrol.data.remote
  * only file you touch for connectivity.
  */
 object ApiConfig {
-    // TODO: confirm against watchpatrol.net OpenAPI schema. Must end with "/".
-    const val BASE_URL = "https://www.watchpatrol.net/api/"
+    // WatchPatrol public REST API. Confirmed base path (docs: /api/public/v1/docs/).
+    const val BASE_URL = "https://www.watchpatrol.net/api/public/v1/"
 
-    // If the listings/catalog endpoints require a key, put it here (or better,
-    // inject from BuildConfig / a secrets file). Leave null for public access.
+    // The listings/pricing endpoints are gated behind a beta partner key
+    // (request at watchpatrol.net/contact). Paste it here — sent as
+    // "Authorization: Bearer <key>". Leave null to try unauthenticated.
     val API_KEY: String? = null
 
     // Header + value scheme used when API_KEY is set, e.g.:

@@ -27,29 +27,28 @@ data class Paginated<T>(
     val count: Int? = null,
 )
 
-@Serializable
+/**
+ * Parsed by [ListingDtoSerializer], which tolerantly reads whatever key
+ * spellings the live API actually uses — string-or-nested brand/model/seller,
+ * and several possible image/date/url key names — so the feed populates even
+ * before the exact schema is confirmed. These field names feed the mapper.
+ */
+@Serializable(with = ListingDtoSerializer::class)
 data class ListingDto(
     val id: Long? = null,
     val title: String? = null,
-    @Serializable(FlexibleDoubleSerializer::class)
     val price: Double? = null,
     val currency: String? = null,
     val source: String? = null,
     val seller: String? = null,
-    // Link back to the original forum / Reddit post.
     val url: String? = null,
-    // Primary image / thumbnail URL.
     val image: String? = null,
     val thumbnail: String? = null,
-    @SerialName("posted_at")
     val postedAt: String? = null,
-    @SerialName("created_at")
     val createdAt: String? = null,
     val brand: String? = null,
-    @SerialName("brand_slug")
     val brandSlug: String? = null,
     val model: String? = null,
-    @SerialName("model_slug")
     val modelSlug: String? = null,
 )
 
