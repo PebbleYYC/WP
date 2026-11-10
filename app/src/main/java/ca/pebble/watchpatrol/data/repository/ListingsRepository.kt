@@ -3,13 +3,12 @@ package ca.pebble.watchpatrol.data.repository
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
-import androidx.paging.map
-import ca.pebble.watchpatrol.data.paging.CursorPagingSource
-import ca.pebble.watchpatrol.data.remote.WatchPatrolApi
+import ca.pebble.watchpatrol.data.paging.WebListingsPagingSource
+import ca.pebble.watchpatrol.data.remote.WatchPatrolWeb
+import ca.pebble.watchpatrol.data.scrape.ListingScraper
 import ca.pebble.watchpatrol.domain.model.Listing
-import ca.pebble.watchpatrol.domain.model.toDomain
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import java.util.concurrent.ConcurrentHashMap
 
 data class ListingQuery(
     val q: String? = null,
@@ -18,31 +17,44 @@ data class ListingQuery(
     val source: String? = null,
     val minPrice: Int? = null,
     val maxPrice: Int? = null,
-    val ordering: String? = "-posted_at",
+    val ordering: String? = null,
 )
 
-class ListingsRepository(private val api: WatchPatrolApi) {
+/**
+ * Listings come from WatchPatrol's public pages (scraped), because the JSON
+ * listings API is gated behind a partner key. A small in-memory cache lets the
+ * detail screen show a tapped listing without re-fetching.
+ */
+class ListingsRepository(private val web: WatchPatrolWeb) {
+
+    private val cache = ConcurrentHashMap<Long, Listing>()
 
     fun listings(query: ListingQuery): Flow<PagingData<Listing>> =
         Pager(
-            config = PagingConfig(pageSize = 20, initialLoadSize = 20, enablePlaceholders = false),
+            config = PagingConfig(pageSize = 55, initialLoadSize = 55, enablePlaceholders = false),
         ) {
-            CursorPagingSource(
-                firstPage = {
-                    api.getListings(
-                        q = query.q,
-                        brand = query.brand,
-                        model = query.model,
-                        source = query.source,
-                        minPrice = query.minPrice,
-                        maxPrice = query.maxPrice,
-                        ordering = query.ordering,
-                    )
-                },
-                nextPage = { url -> api.getListingsByUrl(url) },
-                map = { it.toDomain() },
-            )
+            WebListingsPagingSource { page ->
+                val html = web.page(query = query.q?.takeIf { it.isNotBlank() }, page = page)
+                ListingScraper.parse(html).also { list ->
+                    list.forEach { cache[it.id] = it }
+                }
+            }
         }.flow
 
-    suspend fun listing(id: Long): Listing = api.getListing(id).toDomain()
+    /** Returns the tapped listing from cache, or a stub that still opens on WatchPatrol. */
+    suspend fun listing(id: Long): Listing = cache[id] ?: Listing(
+        id = id,
+        title = "View on WatchPatrol",
+        price = null,
+        currency = null,
+        priceLabel = "—",
+        source = null,
+        seller = null,
+        imageUrl = null,
+        originalUrl = "https://www.watchpatrol.net/listing/$id/",
+        postedRelative = null,
+        brandName = null,
+        modelName = null,
+        modelSlug = null,
+    )
 }

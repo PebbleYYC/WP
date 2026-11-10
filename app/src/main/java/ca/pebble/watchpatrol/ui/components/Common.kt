@@ -130,6 +130,7 @@ fun ErrorState(
     onRetry: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    val needsKey = message.contains("401") || message.contains("403")
     Column(
         modifier = modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
@@ -142,12 +143,16 @@ fun ErrorState(
             modifier = Modifier.size(40.dp),
         )
         Text(
-            text = "Couldn't load",
+            text = if (needsKey) "Needs API access" else "Couldn't load",
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 12.dp),
         )
         Text(
-            text = message,
+            text = if (needsKey) {
+                "This section uses WatchPatrol's API, which needs a key. The listings feed works without one."
+            } else {
+                message
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),

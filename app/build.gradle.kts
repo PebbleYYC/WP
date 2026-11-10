@@ -72,6 +72,8 @@ dependencies {
 
     implementation(libs.retrofit)
     implementation(libs.retrofit.serialization)
+    implementation(libs.retrofit.scalars)
+    implementation(libs.jsoup)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.serialization.json)
