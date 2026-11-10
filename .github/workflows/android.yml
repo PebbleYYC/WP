@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -38,10 +38,26 @@ jobs:
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
 
-      - name: Upload debug APK
+      - name: Upload debug APK (artifact)
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: warn
+
+      # Publishes a mobile-downloadable APK to a rolling "latest" GitHub Release.
+      # Stable link: https://github.com/PebbleYYC/WP/releases/latest
+      - name: Publish APK to Release
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=$(find app/build/outputs/apk/debug -name "*.apk" | head -1)
+          cp "$APK" "WatchPatrol-debug.apk"
+          gh release delete latest --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+          gh release create latest "WatchPatrol-debug.apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "WatchPatrol — latest debug build" \
+            --notes "Auto-built debug APK from commit ${GITHUB_SHA}. Download **WatchPatrol-debug.apk** below and sideload it on Android (enable installing unknown apps). Build #${GITHUB_RUN_NUMBER}."
