@@ -46,4 +46,14 @@ object Formatters {
             DateUtils.MINUTE_IN_MILLIS,
         ).toString()
     }
+
+    /** Unix epoch seconds -> "3 hours ago". */
+    fun relativeTimeEpoch(epochSeconds: Long): String? {
+        if (epochSeconds <= 0) return null
+        return DateUtils.getRelativeTimeSpanString(
+            epochSeconds * 1000,
+            System.currentTimeMillis(),
+            DateUtils.MINUTE_IN_MILLIS,
+        ).toString()
+    }
 }

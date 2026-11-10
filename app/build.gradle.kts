@@ -15,6 +15,15 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
+
+        // Reddit app credentials — injected from Gradle property or env var
+        // (CI secrets), never committed to source. Empty if unset.
+        val redditId = (project.findProperty("REDDIT_CLIENT_ID") as String?)
+            ?: System.getenv("REDDIT_CLIENT_ID") ?: ""
+        val redditSecret = (project.findProperty("REDDIT_CLIENT_SECRET") as String?)
+            ?: System.getenv("REDDIT_CLIENT_SECRET") ?: ""
+        buildConfigField("String", "REDDIT_CLIENT_ID", "\"$redditId\"")
+        buildConfigField("String", "REDDIT_CLIENT_SECRET", "\"$redditSecret\"")
     }
 
     buildTypes {

@@ -149,7 +149,7 @@ fun ErrorState(
         )
         Text(
             text = if (needsKey) {
-                "This section uses WatchPatrol's API, which needs a key. The listings feed works without one."
+                "This needs a valid API key. The r/Watchexchange feed in Discover works on its own."
             } else {
                 message
             },
