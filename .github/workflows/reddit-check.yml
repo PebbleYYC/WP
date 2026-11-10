@@ -9,49 +9,22 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe Reddit app-only OAuth
-        env:
-          RID: ${{ secrets.REDDIT_CLIENT_ID }}
-          RSECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
-          UA: "android:ca.pebble.watchpatrol:1.0.0 (by /u/watchpatrol_app)"
+      - name: Probe Reddit public JSON (no auth)
         run: |
-          echo "client id length: ${#RID}   secret length: ${#RSECRET}"
-          echo
+          BROWSER_UA="Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Mobile Safari/537.36"
+          APP_UA="android:ca.pebble.watchpatrol:1.0.0 (personal watch aggregator)"
 
-          echo "=== 1) grant=client_credentials (web/script app flow) ==="
-          code=$(curl -s -o /tmp/cc.txt -w "%{http_code}" -X POST \
-            -A "$UA" --user "$RID:$RSECRET" \
-            -d "grant_type=client_credentials" \
-            https://www.reddit.com/api/v1/access_token)
-          echo "HTTP $code"
-          if [ "$code" = "200" ]; then
-            echo "SUCCESS (token hidden); fields present:"; grep -o '"token_type"[^,}]*\|"scope"[^,}]*\|"expires_in"[^,}]*' /tmp/cc.txt
-          else
-            echo "body: $(cat /tmp/cc.txt)"
-          fi
-          echo
+          probe () {
+            local label="$1"; local ua="$2"; local url="$3"
+            code=$(curl -s -o /tmp/r.txt -w "%{http_code}" -A "$ua" "$url")
+            echo "[$label] HTTP $code  (bytes: $(wc -c < /tmp/r.txt))"
+            echo "  head: $(head -c 90 /tmp/r.txt | tr -d '\n')"
+            echo "  kinds: $(grep -o '\"kind\": *\"[^\"]*\"' /tmp/r.txt | head -2 | tr '\n' ' ')"
+            echo
+          }
 
-          echo "=== 2) grant=installed_client (installed app flow) ==="
-          code2=$(curl -s -o /tmp/ic.txt -w "%{http_code}" -X POST \
-            -A "$UA" --user "$RID:" \
-            -d "grant_type=https://oauth.reddit.com/grants/installed_client&device_id=DO_NOT_TRACK_THIS_DEVICE" \
-            https://www.reddit.com/api/v1/access_token)
-          echo "HTTP $code2"
-          if [ "$code2" = "200" ]; then
-            echo "SUCCESS (token hidden)"; grep -o '"token_type"[^,}]*\|"scope"[^,}]*' /tmp/ic.txt
-          else
-            echo "body: $(cat /tmp/ic.txt)"
-          fi
-          echo
-
-          echo "=== 3) if client_credentials worked, try reading r/Watchexchange ==="
-          if [ "$code" = "200" ]; then
-            TOKEN=$(grep -o '"access_token": *"[^"]*"' /tmp/cc.txt | sed 's/.*"\([^"]*\)"$/\1/')
-            rc=$(curl -s -o /tmp/data.txt -w "%{http_code}" \
-              -A "$UA" -H "Authorization: bearer $TOKEN" \
-              "https://oauth.reddit.com/r/Watchexchange/new?limit=1")
-            echo "data read HTTP $rc"
-            echo "first child kind: $(grep -o '"kind": *"[^"]*"' /tmp/data.txt | head -1)"
-          else
-            echo "skipped (no token)"
-          fi
+          echo "=== unauthenticated public JSON ==="
+          probe "www .json / browser UA" "$BROWSER_UA" "https://www.reddit.com/r/Watchexchange/new.json?limit=3&raw_json=1"
+          probe "www .json / app UA"     "$APP_UA"     "https://www.reddit.com/r/Watchexchange/new.json?limit=3&raw_json=1"
+          probe "old .json / browser UA" "$BROWSER_UA" "https://old.reddit.com/r/Watchexchange/new.json?limit=3"
+          probe "search .json"           "$BROWSER_UA" "https://www.reddit.com/r/Watchexchange/search.json?q=rolex&restrict_sr=1&sort=new&limit=3"
