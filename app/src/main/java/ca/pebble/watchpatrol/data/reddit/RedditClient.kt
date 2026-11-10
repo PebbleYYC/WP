@@ -5,6 +5,7 @@ import ca.pebble.watchpatrol.util.Formatters
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.Credentials
+import retrofit2.HttpException
 
 /**
  * Pulls watch-for-sale posts directly from r/Watchexchange via Reddit's
@@ -18,6 +19,7 @@ class RedditClient(private val api: RedditApi) {
     )
 
     private val mutex = Mutex()
+    private val deviceId = java.util.UUID.randomUUID().toString()
     @Volatile private var token: String? = null
     @Volatile private var expiresAtMs: Long = 0
 
@@ -26,17 +28,50 @@ class RedditClient(private val api: RedditApi) {
         token?.let { if (System.currentTimeMillis() < expiresAtMs) return "bearer $it" }
         return mutex.withLock {
             token?.let { if (System.currentTimeMillis() < expiresAtMs) return@withLock "bearer $it" }
-            val resp = api.token(
-                url = RedditConfig.TOKEN_URL,
-                basic = Credentials.basic(RedditConfig.CLIENT_ID, RedditConfig.CLIENT_SECRET),
-                userAgent = RedditConfig.USER_AGENT,
-            )
+            val resp = fetchToken()
             val access = resp.accessToken
-                ?: throw IllegalStateException("Reddit auth failed — check the client id/secret")
+                ?: throw IllegalStateException(
+                    "Reddit returned no token (scope=${resp.scope ?: "?"}). Check the app type.",
+                )
             token = access
             expiresAtMs = System.currentTimeMillis() + (resp.expiresIn - 60).coerceAtLeast(60) * 1000
             "bearer $access"
         }
+    }
+
+    private suspend fun fetchToken(): RedditToken {
+        val id = RedditConfig.CLIENT_ID
+        val secret = RedditConfig.CLIENT_SECRET
+        // 1) Confidential app (web app / script): client_credentials, basic id:secret.
+        return try {
+            api.token(
+                url = RedditConfig.TOKEN_URL,
+                basic = Credentials.basic(id, secret),
+                userAgent = RedditConfig.USER_AGENT,
+                fields = mapOf("grant_type" to "client_credentials"),
+            )
+        } catch (e: HttpException) {
+            if (e.code() != 401 && e.code() != 403) throw redditError(e)
+            // 2) Installed (public) app: userless grant, basic id with empty secret.
+            try {
+                api.token(
+                    url = RedditConfig.TOKEN_URL,
+                    basic = Credentials.basic(id, ""),
+                    userAgent = RedditConfig.USER_AGENT,
+                    fields = mapOf(
+                        "grant_type" to "https://oauth.reddit.com/grants/installed_client",
+                        "device_id" to deviceId,
+                    ),
+                )
+            } catch (e2: HttpException) {
+                throw redditError(e2)
+            }
+        }
+    }
+
+    private fun redditError(e: HttpException): Exception {
+        val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()?.take(180)
+        return IllegalStateException("Reddit auth HTTP ${e.code()}: ${body ?: e.message()}")
     }
 
     /** Returns (listings, nextAfterCursor). */

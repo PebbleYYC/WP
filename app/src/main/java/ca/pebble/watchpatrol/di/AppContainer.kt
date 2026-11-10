@@ -54,7 +54,7 @@ class AppContainer(context: Context) {
         .apply {
             if (BuildConfig.DEBUG) {
                 addInterceptor(
-                    HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC },
+                    HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY },
                 )
             }
         }

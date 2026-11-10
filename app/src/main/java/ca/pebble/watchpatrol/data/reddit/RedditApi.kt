@@ -1,6 +1,6 @@
 package ca.pebble.watchpatrol.data.reddit
 
-import retrofit2.http.Field
+import retrofit2.http.FieldMap
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -18,7 +18,7 @@ interface RedditApi {
         @Url url: String,
         @Header("Authorization") basic: String,
         @Header("User-Agent") userAgent: String,
-        @Field("grant_type") grantType: String = "client_credentials",
+        @FieldMap fields: Map<String, String>,
     ): RedditToken
 
     @GET("r/{sub}/new")

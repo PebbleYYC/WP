@@ -130,7 +130,6 @@ fun ErrorState(
     onRetry: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    val needsKey = message.contains("401") || message.contains("403")
     Column(
         modifier = modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
@@ -143,18 +142,15 @@ fun ErrorState(
             modifier = Modifier.size(40.dp),
         )
         Text(
-            text = if (needsKey) "Needs API access" else "Couldn't load",
+            text = "Couldn't load",
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 12.dp),
         )
         Text(
-            text = if (needsKey) {
-                "This needs a valid API key. The r/Watchexchange feed in Discover works on its own."
-            } else {
-                message
-            },
+            text = message,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp),
         )
         if (onRetry != null) {
